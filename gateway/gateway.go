@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"log"
 
 	"wsim/gateway/model"
 
-	"github.com/bytedance/sonic"
 	"github.com/cloudwego/netpoll"
 )
 
@@ -17,9 +17,10 @@ func main() {
 		netpoll.WithOnPrepare(onPrepare),
 		netpoll.WithOnConnect(onConnect),
 	)
-
+	// connManager := netpoll.NewConnectionManager()
 	model.NewUsers()
-	model.InitSend()
+	// 目前不需要多网关机制
+	// model.InitSend()
 	// 修改为监听所有接口，支持外部连接
 	listener, err := netpoll.CreateListener("tcp4", "0.0.0.0:8085")
 	if err != nil {
@@ -46,14 +47,25 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 	if reader.Len() == 0 {
 		return nil
 	}
+	if reader.Len() < 21 {
+		return nil
+	}
+	// 读取 DataLen
+	header, _ := reader.Peek(model.HeaderLen)
+	dataLen := binary.BigEndian.Uint32(header[17:21])
+	totalLen := model.HeaderLen + int(dataLen)
+
+	// 数据不完整
+	if reader.Len() < totalLen {
+		return nil
+	}
 	auth := ctx.Value("auth").(*model.Auth)
-	data, err := reader.Next(reader.Len())
+	data, err := reader.Next(totalLen)
 	if err != nil {
 		conn.Close()
 		return err
 	}
-	msg := &model.Message{}
-	sonic.Unmarshal(data, msg)
+	msg := model.Decode(data)
 	switch msg.Type {
 	case model.MessageTypeAuth:
 		if !auth.IsAuth {
@@ -114,7 +126,7 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 			} else {
 				// 如果接收者不存在，则需要转发给gateway
 				fmt.Println("receiver not found, forwarding to gateway")
-				model.SendMessage(*msg)
+				model.SendMessage(msg)
 				// fmt.Println("receiver not found")
 				// conn.Writer().WriteString("receiver not found")
 				// conn.Writer().Flush()

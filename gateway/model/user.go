@@ -3,31 +3,31 @@ package model
 import "github.com/cloudwego/netpoll"
 
 type User struct {
-	UserID int64              `json:"user_id"`
+	UserID uint64             `json:"user_id"`
 	Conn   netpoll.Connection `json:"conn"`
 	IsAuth bool               `json:"is_auth"`
 }
 
-var Users map[int64]*User
+var Users map[uint64]*User
 
 func NewUsers() {
-	Users = make(map[int64]*User)
+	Users = make(map[uint64]*User)
 }
 
-func (u *User) Get(userID int64) *User {
+func (u *User) Get(userID uint64) *User {
 	return Users[userID]
 }
 
-func (u *User) Set(userID int64, user *User) {
+func (u *User) Set(userID uint64, user *User) {
 	Users[userID] = user
 }
 
-func (u *User) Delete(userID int64) {
+func (u *User) Delete(userID uint64) {
 	delete(Users, userID)
 }
 
 // 获取用户是否登陆状态
-func (u *User) AuthStatus(userID int64) bool {
+func (u *User) AuthStatus(userID uint64) bool {
 	if user, ok := Users[userID]; ok {
 		return user.IsAuth
 	}
@@ -35,7 +35,7 @@ func (u *User) AuthStatus(userID int64) bool {
 }
 
 // 设置用户登陆状态
-func (u *User) SetAuth(userID int64, isAuth bool) {
+func (u *User) SetAuth(userID uint64, isAuth bool) {
 	if user, ok := Users[userID]; ok {
 		user.IsAuth = isAuth
 	} else {
@@ -46,7 +46,7 @@ func (u *User) SetAuth(userID int64, isAuth bool) {
 	}
 }
 
-func (u *User) GetConn(userID int64) netpoll.Connection {
+func (u *User) GetConn(userID uint64) netpoll.Connection {
 	if user, ok := Users[userID]; ok {
 		return user.Conn
 	}
