@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"time"
 
 	"wsim/gateway/model"
 
@@ -16,6 +17,7 @@ func main() {
 		onRequest,
 		netpoll.WithOnPrepare(onPrepare),
 		netpoll.WithOnConnect(onConnect),
+		netpoll.WithReadTimeout(time.Second*30),
 	)
 	// connManager := netpoll.NewConnectionManager()
 	model.NewUsers()
@@ -43,25 +45,32 @@ func onPrepare(conn netpoll.Connection) context.Context {
 }
 
 func onRequest(ctx context.Context, conn netpoll.Connection) error {
+	fmt.Printf("onRequest被调用，RemoteAddr: %s\n", conn.RemoteAddr().String())
 	reader := conn.Reader()
+	fmt.Printf("接收到数据，长度: %d\n", reader.Len())
 	if reader.Len() == 0 {
+		fmt.Println("数据长度为0")
 		return nil
 	}
 	if reader.Len() < 21 {
+		fmt.Printf("数据长度小于21，实际长度: %d\n", reader.Len())
 		return nil
 	}
 	// 读取 DataLen
 	header, _ := reader.Peek(model.HeaderLen)
 	dataLen := binary.BigEndian.Uint32(header[17:21])
 	totalLen := model.HeaderLen + int(dataLen)
+	fmt.Printf("解析头部：数据长度=%d, 总长度=%d, 当前可读=%d\n", dataLen, totalLen, reader.Len())
 
 	// 数据不完整
 	if reader.Len() < totalLen {
+		fmt.Printf("数据不完整：需要%d字节，实际%d字节\n", totalLen, reader.Len())
 		return nil
 	}
 	auth := ctx.Value("auth").(*model.Auth)
 	data, err := reader.Next(totalLen)
 	if err != nil {
+		fmt.Println("onRequest error: ", err)
 		conn.Close()
 		return err
 	}
@@ -154,10 +163,10 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 }
 
 func onConnect(ctx context.Context, conn netpoll.Connection) context.Context {
-	fmt.Println("onConnect")
 	auth := &model.Auth{
 		IsAuth:     false,
 		RemoteAddr: ctx.Value("remoteAddr").(string),
 	}
+	fmt.Println("onConnect: ", auth)
 	return context.WithValue(ctx, "auth", auth)
 }

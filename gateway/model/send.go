@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bytedance/sonic"
 	"github.com/cloudwego/netpoll"
 )
 
@@ -33,13 +32,12 @@ func SendMessage(msg Message) {
 	gateway := "52.201.237.21:8085"
 	conn, ok := gateWayMap[gateway]
 	if !ok {
+		// 其他网关也不存在说明不在线  需要其他处理  目前直接返回
 		fmt.Printf("Failed to get gateway: %s", gateway)
+		return
 	}
-	data, err := sonic.Marshal(msg)
-	if err != nil {
-		fmt.Printf("Failed to marshal message: %v", err)
-	}
-	conn.Write(data)
+	data := Encode(msg)
+	conn.Writer().WriteBinary(data)
 	conn.Writer().Flush()
 }
 
