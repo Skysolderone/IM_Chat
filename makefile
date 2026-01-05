@@ -1,9 +1,12 @@
 run-user:
-	go run user/user.go
+	./user/user
 
 
 run-gateway:
-	go run gateway/gateway.go
+	./gateway/gateway
+
+build-user:
+	go build -o user/user user/user.go
 
 
 run-client:
