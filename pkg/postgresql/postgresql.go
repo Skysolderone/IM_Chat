@@ -3,12 +3,10 @@ package postgresql
 import (
 	"fmt"
 	"log"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
+	"wsim/pkg/config"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -25,17 +23,15 @@ func GetDB() *gorm.DB {
 func InitPostgreSQL() {
 	var err error
 	log.Println("Initializing PostgreSQL...")
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatal("Failed to load .env file: ", err)
-	}
-	host := os.Getenv("host")
-	port := os.Getenv("port")
-	user := os.Getenv("user")
-	password := os.Getenv("password")
-	dbname := os.Getenv("dbname")
-	sslmode := os.Getenv("sslmode")
-	timezone := os.Getenv("timezone")
+
+	cfg := config.GetDatabaseConfig()
+	host := cfg.Database.Host
+	port := cfg.Database.Port
+	user := cfg.Database.User
+	password := cfg.Database.Password
+	dbname := cfg.Database.DBName
+	sslmode := cfg.Database.SSLMode
+	timezone := cfg.Database.Timezone
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s timezone=%s", host, port, user, password, dbname, sslmode, timezone)
 	if dsn == "" {
@@ -61,20 +57,32 @@ func InitPostgreSQL() {
 		log.Fatal("Failed to get SQL DB: ", err)
 	}
 
-	// 连接池参数建议“默认值 + 可配置覆盖”，避免不同环境下写死不合适。
-	// 环境变量：
-	// - PG_MAX_OPEN_CONNS: 最大打开连接数（int）
-	// - PG_MAX_IDLE_CONNS: 最大空闲连接数（int，需 <= open）
-	// - PG_CONN_MAX_LIFETIME: 连接最大生命周期（time.ParseDuration，如 30m/1h；0 表示不限制）
-	// - PG_CONN_MAX_IDLE_TIME: 连接最大空闲时间（time.ParseDuration，如 5m；0 表示不限制）
-	maxOpen := envInt("PG_MAX_OPEN_CONNS", 25, 1, 10000)
-	maxIdleDefault := 10
-	if maxIdleDefault > maxOpen {
-		maxIdleDefault = maxOpen
+	// 连接池参数从配置文件读取
+	maxOpen := cfg.Database.MaxOpenConns
+	if maxOpen <= 0 {
+		maxOpen = 25
 	}
-	maxIdle := envInt("PG_MAX_IDLE_CONNS", maxIdleDefault, 0, maxOpen)
-	connMaxLifetime := envDuration("PG_CONN_MAX_LIFETIME", 30*time.Minute)
-	connMaxIdleTime := envDuration("PG_CONN_MAX_IDLE_TIME", 5*time.Minute)
+	if maxOpen > 10000 {
+		maxOpen = 10000
+	}
+
+	maxIdle := cfg.Database.MaxIdleConns
+	if maxIdle <= 0 {
+		maxIdle = 10
+	}
+	if maxIdle > maxOpen {
+		maxIdle = maxOpen
+	}
+
+	connMaxLifetime := cfg.Database.ConnMaxLifetime
+	if connMaxLifetime <= 0 {
+		connMaxLifetime = 30 * time.Minute
+	}
+
+	connMaxIdleTime := cfg.Database.ConnMaxIdleTime
+	if connMaxIdleTime <= 0 {
+		connMaxIdleTime = 5 * time.Minute
+	}
 
 	// MaxOpenConns 应结合 DB 端 max_connections、应用实例数、以及业务并发来评估。
 	sqlDB.SetMaxOpenConns(maxOpen)
@@ -84,37 +92,4 @@ func InitPostgreSQL() {
 	sqlDB.SetConnMaxLifetime(connMaxLifetime)
 	// 空闲超时：建议设置，避免长期空闲连接占用资源；常用 1m~10m。
 	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
-}
-
-func envInt(key string, def, min, max int) int {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return def
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return def
-	}
-	if n < min {
-		return min
-	}
-	if n > max {
-		return max
-	}
-	return n
-}
-
-func envDuration(key string, def time.Duration) time.Duration {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return def
-	}
-	d, err := time.ParseDuration(v)
-	if err != nil {
-		return def
-	}
-	if d < 0 {
-		return def
-	}
-	return d
 }

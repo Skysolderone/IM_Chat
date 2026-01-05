@@ -9,11 +9,16 @@ import (
 	"time"
 
 	"wsim/gateway/model"
+	"wsim/pkg/config"
 
 	"github.com/cloudwego/netpoll"
 )
 
 func main() {
+	if err := config.LoadConfig(""); err != nil {
+		log.Fatalf("加载配置失败: %v", err)
+	}
+
 	eventLoop, _ := netpoll.NewEventLoop(
 		onRequest,
 		netpoll.WithOnPrepare(onPrepare),

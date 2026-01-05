@@ -1,0 +1,19 @@
+server:
+  port: "8080"
+
+database:
+  host: "localhost"
+  port: "5432"
+  user: "postgres"
+  password: "password"
+  dbname: "im_chat"
+  sslmode: "disable"
+  timezone: "Asia/Shanghai"
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime: 30m
+  conn_max_idle_time: 5m
+
+jwt:
+  secret: "secret key"
+  expire: 1h

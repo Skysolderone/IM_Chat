@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log"
 	"os"
+	"wsim/pkg/config"
 	"wsim/pkg/postgresql"
 	"wsim/user/routes"
 	wsutils "wsim/utils"
@@ -11,6 +13,10 @@ import (
 )
 
 func main() {
+	if err := config.LoadConfig(""); err != nil {
+		log.Fatalf("加载配置失败: %v", err)
+	}
+
 	postgresql.InitPostgreSQL()
 	logger := wsutils.SetupLogger(hlog.LevelDebug)
 	hlog.SetLogger(logger)
