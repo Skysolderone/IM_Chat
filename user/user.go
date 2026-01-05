@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"wsim/pkg/postgresql"
 	"wsim/user/routes"
 	wsutils "wsim/utils"
@@ -14,7 +15,8 @@ func main() {
 	logger := wsutils.SetupLogger(hlog.LevelDebug)
 	hlog.SetLogger(logger)
 
-	h := server.New(server.WithHostPorts("0.0.0.0:9091"))
+	port := os.Getenv("PORT")
+	h := server.New(server.WithHostPorts("0.0.0.0:" + port))
 
 	routes.InitRouter(h)
 

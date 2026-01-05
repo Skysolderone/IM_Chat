@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"wsim/gateway/model"
@@ -19,16 +20,17 @@ func main() {
 		netpoll.WithOnConnect(onConnect),
 		netpoll.WithReadTimeout(time.Second*30),
 	)
+	port := os.Getenv("PORT")
 	// connManager := netpoll.NewConnectionManager()
 	model.NewUsers()
 	// 目前不需要多网关机制
 	// model.InitSend()
 	// 修改为监听所有接口，支持外部连接
-	listener, err := netpoll.CreateListener("tcp4", "0.0.0.0:8085")
+	listener, err := netpoll.CreateListener("tcp4", "0.0.0.0:"+port)
 	if err != nil {
 		log.Fatalf("创建监听器失败: %v", err)
 	}
-	log.Printf("服务器启动，监听地址: 0.0.0.0:8085 (IPv4)")
+	log.Printf("服务器启动，监听地址: 0.0.0.0:%s (IPv4)", port)
 	err = eventLoop.Serve(listener)
 	if err != nil {
 		log.Fatalf("服务器启动失败: %v", err)
