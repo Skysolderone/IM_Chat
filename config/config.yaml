@@ -1,14 +1,11 @@
-server:
-  port: "8080"
-
 database:
-  host: "localhost"
+  host: "pgm-bp140jpn9wct9u0two.pg.rds.aliyuncs.com"
   port: "5432"
-  user: "postgres"
-  password: "password"
-  dbname: "im_chat"
+  user: "wws"
+  password: "Wws5201314"
+  dbname: "im_user"
   sslmode: "disable"
-  timezone: "Asia/Shanghai"
+  timezone: "UTC"
   max_open_conns: 25
   max_idle_conns: 10
   conn_max_lifetime: 30m
