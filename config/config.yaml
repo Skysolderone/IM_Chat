@@ -1,3 +1,5 @@
+server:
+  port: "8888"
 database:
   host: "pgm-bp140jpn9wct9u0two.pg.rds.aliyuncs.com"
   port: "5432"

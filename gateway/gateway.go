@@ -26,6 +26,9 @@ func main() {
 		netpoll.WithReadTimeout(time.Second*30),
 	)
 	port := os.Getenv("PORT")
+	if port == "" {
+		port = config.GetServerPort()
+	}
 	// connManager := netpoll.NewConnectionManager()
 	model.NewUsers()
 	// 目前不需要多网关机制

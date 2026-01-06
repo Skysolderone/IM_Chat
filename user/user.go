@@ -22,6 +22,9 @@ func main() {
 	hlog.SetLogger(logger)
 
 	port := os.Getenv("PORT")
+	if port == "" {
+		port = config.GetServerPort()
+	}
 	h := server.New(server.WithHostPorts("0.0.0.0:" + port))
 
 	routes.InitRouter(h)
