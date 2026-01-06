@@ -15,8 +15,8 @@ type UserModel struct {
 	gorm.Model
 	Username     string    `gorm:"type:varchar(64);uniqueIndex;not null"`
 	PasswordHash string    `gorm:"type:varchar(255);not null"`
-	LastLoginAt  time.Time `gorm:"type:timestamp;not null"`
-	LastLoginIP  string    `gorm:"type:varchar(45);not null"`
+	LastLoginAt  time.Time `gorm:"type:timestamp;"`
+	LastLoginIP  string    `gorm:"type:varchar(45);"`
 }
 
 func (UserModel) TableName() string { return "users" }

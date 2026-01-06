@@ -1,12 +1,12 @@
 run-user:
-	./user/user
+	./bin/user
 
 
 run-gateway:
-	./gateway/gateway
+	./bin/gateway
 
 build-user:
-	go build -o user/user user/user.go
+	go build -o bin/user user/user.go
 
 
 run-client:
@@ -14,7 +14,7 @@ run-client:
 
 
 build-gateway:
-	go build -o gateway/gateway gateway/gateway.go
+	go build -o bin/gateway gateway/gateway.go
 
 scp-gateway:
 	go build -ldflags "-s -w" -o bin/socket_gateway gateway/gateway.go
