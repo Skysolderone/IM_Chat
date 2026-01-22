@@ -1,10 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   gateway1:
-    build:
-      context: ..
-      dockerfile: gateway/Dockerfile
+    image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
     container_name: gateway1
     ports:
       - "8085:8085"
@@ -17,9 +15,7 @@ services:
     restart: unless-stopped
 
   gateway2:
-    build:
-      context: ..
-      dockerfile: gateway/Dockerfile
+    image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
     container_name: gateway2
     ports:
       - "8087:8085"
@@ -32,9 +28,7 @@ services:
     restart: unless-stopped
 
   gateway3:
-    build:
-      context: ..
-      dockerfile: gateway/Dockerfile
+    image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
     container_name: gateway3
     ports:
       - "8089:8085"
