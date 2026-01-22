@@ -32,7 +32,7 @@ func main() {
 	// connManager := netpoll.NewConnectionManager()
 	model.NewUsers()
 	// 目前不需要多网关机制
-	// model.InitSend()
+	model.InitSend()
 	// 修改为监听所有接口，支持外部连接
 	listener, err := netpoll.CreateListener("tcp4", "0.0.0.0:"+port)
 	if err != nil {
@@ -85,6 +85,7 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 		return err
 	}
 	msg := model.Decode(data)
+	
 	switch msg.Type {
 	case model.MessageTypeAuth:
 		if !auth.IsAuth {
@@ -109,6 +110,8 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 				Conn:   conn,
 				IsAuth: true,
 			}
+			// 设置用户路由：用户ID -> 当前网关ID
+			model.SetUserRoute(msg.FromUserID, model.GetCurrentGatewayID())
 			conn.Writer().WriteString("用户登陆成功")
 			conn.Writer().Flush()
 			return nil
@@ -125,14 +128,32 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 			Conn:   conn,
 			IsAuth: true,
 		}
+		// 设置用户路由
+		model.SetUserRoute(msg.FromUserID, model.GetCurrentGatewayID())
 
 	case model.MessageTypeText:
 		fmt.Println("收到文本消息: ", msg)
-		data := fmt.Sprintf("%d 发送了消息: %s", msg.FromUserID, string(msg.Data))
-
+		
 		// 如果消息是发给其他用户的，则需要转发给其他用户
 		if msg.ToUserID != 0 {
-			if receiver, ok := model.Users[msg.ToUserID]; ok {
+			// 检查是否是来自其他网关的消息（发送者不在当前网关）
+			fromUserInCurrentGateway := model.Users[msg.FromUserID] != nil && model.Users[msg.FromUserID].IsAuth
+			
+			if !fromUserInCurrentGateway {
+				// 这是来自其他网关的消息，检查目标用户是否在当前网关
+				if receiver, ok := model.Users[msg.ToUserID]; ok && receiver.IsAuth {
+					// 目标用户在当前网关，转发给用户
+					handleGatewayForwardedMessage(msg, receiver)
+					return nil
+				}
+				// 目标用户也不在当前网关，忽略（可能在其他网关）
+				return nil
+			}
+			
+			// 这是本地用户发送的消息
+			data := fmt.Sprintf("%d 发送了消息: %s", msg.FromUserID, string(msg.Data))
+			if receiver, ok := model.Users[msg.ToUserID]; ok && receiver.IsAuth {
+				// 用户在当前网关，直接转发
 				n, err := receiver.Conn.Writer().WriteString(string(data))
 				if err != nil {
 					fmt.Println("write string error: ", err)
@@ -143,12 +164,9 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 				fmt.Println("write string success: ", n)
 				receiver.Conn.Writer().Flush()
 			} else {
-				// 如果接收者不存在，则需要转发给gateway
-				fmt.Println("receiver not found, forwarding to gateway")
+				// 如果接收者不在当前网关，转发给其他网关
+				fmt.Println("receiver not found in current gateway, forwarding to other gateways")
 				model.SendMessage(msg)
-				// fmt.Println("receiver not found")
-				// conn.Writer().WriteString("receiver not found")
-				// conn.Writer().Flush()
 				return nil
 			}
 		}
@@ -179,4 +197,30 @@ func onConnect(ctx context.Context, conn netpoll.Connection) context.Context {
 	}
 	fmt.Println("onConnect: ", auth)
 	return context.WithValue(ctx, "auth", auth)
+}
+
+// handleGatewayForwardedMessage 处理来自其他网关转发的消息
+func handleGatewayForwardedMessage(msg model.Message, receiver *model.User) {
+	fmt.Printf("处理来自其他网关的消息: %+v\n", msg)
+	
+	switch msg.Type {
+	case model.MessageTypeText:
+		responseData := fmt.Sprintf("%d 发送了消息: %s", msg.FromUserID, string(msg.Data))
+		_, err := receiver.Conn.Writer().WriteString(responseData)
+		if err != nil {
+			fmt.Printf("转发消息给用户 %d 失败: %v\n", msg.ToUserID, err)
+			return
+		}
+		receiver.Conn.Writer().Flush()
+		fmt.Printf("消息已转发给用户 %d\n", msg.ToUserID)
+	case model.MessageTypeImage, model.MessageTypeVoice, model.MessageTypeVideo:
+		// 转发二进制消息
+		_, err := receiver.Conn.Writer().WriteBinary(msg.Data)
+		if err != nil {
+			fmt.Printf("转发消息给用户 %d 失败: %v\n", msg.ToUserID, err)
+			return
+		}
+		receiver.Conn.Writer().Flush()
+		fmt.Printf("消息已转发给用户 %d\n", msg.ToUserID)
+	}
 }
