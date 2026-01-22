@@ -21,6 +21,9 @@ ENV TZ=Asia/Shanghai
 
 WORKDIR /app
 
+# 创建日志目录
+RUN mkdir -p /app/logs
+
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/gateway/gateway .
 

@@ -5,11 +5,11 @@ services:
     image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
     container_name: gateway1
     ports:
-      - "8085:8085"
+      - "8888:8888"  # 对外暴露 8888 端口
     environment:
-      - PORT=8085
+      - PORT=8888
       - GATEWAY_ID=gateway1
-      - GATEWAY_LIST=gateway2:8085,gateway3:8085
+      - GATEWAY_LIST=gateway2:8085,gateway3:8085  # 可以转发到的其他网关（选择最久没有连接的）
     networks:
       - gateway-network
     restart: unless-stopped
@@ -19,12 +19,13 @@ services:
   gateway2:
     image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
     container_name: gateway2
-    ports:
-      - "8087:8085"
+    expose:
+      - "8085"
     environment:
       - PORT=8085
       - GATEWAY_ID=gateway2
       - GATEWAY_LIST=gateway1:8085,gateway3:8085
+      - MAX_CONN_THRESHOLD=100
     networks:
       - gateway-network
     restart: unless-stopped
@@ -34,12 +35,13 @@ services:
   gateway3:
     image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
     container_name: gateway3
-    ports:
-      - "8089:8085"
+    expose:
+      - "8085"
     environment:
       - PORT=8085
       - GATEWAY_ID=gateway3
       - GATEWAY_LIST=gateway1:8085,gateway2:8085
+      - MAX_CONN_THRESHOLD=100
     networks:
       - gateway-network
     restart: unless-stopped

@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	conn, err := netpoll.NewDialer().DialConnection("tcp", "127.0.0.1:8085", time.Second*10, nil)
+	conn, err := netpoll.NewDialer().DialConnection("tcp", "3.114.255.184:8888", time.Second*10, nil)
 	// conn, err := netpoll.NewDialer().DialConnection("tcp", "52.201.237.21:8085", time.Second*10, nil)
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %v", err)

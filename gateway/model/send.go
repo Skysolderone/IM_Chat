@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -14,8 +13,8 @@ var (
 	gateWayMap      map[string]netpoll.Connection
 	gateWayMapMutex sync.RWMutex
 	// 用户路由表：用户ID -> 网关ID
-	userRouteMap    map[uint64]string
-	userRouteMutex  sync.RWMutex
+	userRouteMap     map[uint64]string
+	userRouteMutex   sync.RWMutex
 	currentGatewayID string
 )
 
@@ -23,17 +22,17 @@ var (
 func InitSend() {
 	gateWayMap = make(map[string]netpoll.Connection)
 	userRouteMap = make(map[uint64]string)
-	
+
 	// 从环境变量获取当前网关ID
 	currentGatewayID = os.Getenv("GATEWAY_ID")
 	if currentGatewayID == "" {
 		currentGatewayID = "gateway1"
 	}
-	
+
 	// 从环境变量获取网关列表
 	gatewayListStr := os.Getenv("GATEWAY_LIST")
 	var gateWayList []string
-	
+
 	if gatewayListStr != "" {
 		gateWayList = strings.Split(gatewayListStr, ",")
 		// 清理空格
@@ -44,53 +43,65 @@ func InitSend() {
 		// 默认值，用于本地开发
 		gateWayList = []string{}
 	}
-	
-	fmt.Printf("当前网关ID: %s\n", currentGatewayID)
-	fmt.Printf("需要连接的网关列表: %v\n", gateWayList)
-	
+
+	if Logger != nil {
+		Logger.Printf("当前网关ID: %s", currentGatewayID)
+		Logger.Printf("需要连接的网关列表: %v", gateWayList)
+	}
+
 	// 初始化跟其他gateway的连接
 	for _, gateway := range gateWayList {
 		// 使用容器名称或IP:端口格式
 		conn, err := netpoll.NewDialer().DialConnection("tcp", gateway, time.Second*10)
 		if err != nil {
-			fmt.Printf("连接网关 %s 失败: %v，将稍后重试\n", gateway, err)
+			if Logger != nil {
+				Logger.Printf("连接网关 %s 失败: %v，将稍后重试", gateway, err)
+			}
 			// 启动后台重连机制
 			go reconnectGateway(gateway)
 		} else {
 			gateWayMapMutex.Lock()
 			gateWayMap[gateway] = conn
 			gateWayMapMutex.Unlock()
-			fmt.Printf("成功连接到网关: %s\n", gateway)
+			if Logger != nil {
+				Logger.Printf("成功连接到网关: %s", gateway)
+			}
 		}
 	}
-	
-	fmt.Printf("网关连接初始化完成，已连接: %d 个网关\n", len(gateWayMap))
+
+	if Logger != nil {
+		Logger.Printf("网关连接初始化完成，已连接: %d 个网关", len(gateWayMap))
+	}
 }
 
 // reconnectGateway 后台重连失败的网关
 func reconnectGateway(gateway string) {
 	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		gateWayMapMutex.RLock()
 		_, exists := gateWayMap[gateway]
 		gateWayMapMutex.RUnlock()
-		
+
 		if exists {
 			return // 已经连接成功，退出重连
 		}
-		
+
 		conn, err := netpoll.NewDialer().DialConnection("tcp", gateway, time.Second*10)
 		if err != nil {
-			fmt.Printf("重连网关 %s 失败: %v\n", gateway, err)
+			if Logger != nil {
+				Logger.Printf("重连网关 %s 失败: %v", gateway, err)
+			}
 			continue
 		}
-		
+
 		gateWayMapMutex.Lock()
 		gateWayMap[gateway] = conn
 		gateWayMapMutex.Unlock()
-		fmt.Printf("重连网关 %s 成功\n", gateway)
+		if Logger != nil {
+			Logger.Printf("重连网关 %s 成功", gateway)
+		}
 		return
 	}
 }
@@ -117,23 +128,29 @@ func GetCurrentGatewayID() string {
 
 // SendMessage 发送消息到其他网关
 func SendMessage(msg Message) {
-	fmt.Printf("SendMessage: %+v\n", msg)
-	
+	if Logger != nil {
+		Logger.Printf("SendMessage: FromUserID=%d, ToUserID=%d, Type=%d", msg.FromUserID, msg.ToUserID, msg.Type)
+	}
+
 	// 获取目标用户所在的网关
 	targetGatewayID, ok := GetUserRoute(msg.ToUserID)
 	if !ok {
 		// 如果找不到路由，广播到所有网关
-		fmt.Printf("用户 %d 路由不存在，广播到所有网关\n", msg.ToUserID)
+		if Logger != nil {
+			Logger.Printf("用户 %d 路由不存在，广播到所有网关", msg.ToUserID)
+		}
 		broadcastMessage(msg)
 		return
 	}
-	
+
 	// 如果目标用户在当前网关，不需要转发
 	if targetGatewayID == currentGatewayID {
-		fmt.Printf("用户 %d 在当前网关，无需转发\n", msg.ToUserID)
+		if Logger != nil {
+			Logger.Printf("用户 %d 在当前网关，无需转发", msg.ToUserID)
+		}
 		return
 	}
-	
+
 	// 找到目标网关的连接
 	gateWayMapMutex.RLock()
 	var targetConn netpoll.Connection
@@ -145,22 +162,28 @@ func SendMessage(msg Message) {
 		}
 	}
 	gateWayMapMutex.RUnlock()
-	
+
 	if targetConn == nil {
-		fmt.Printf("未找到网关 %s 的连接，尝试广播\n", targetGatewayID)
+		if Logger != nil {
+			Logger.Printf("未找到网关 %s 的连接，尝试广播", targetGatewayID)
+		}
 		// 尝试广播
 		broadcastMessage(msg)
 		return
 	}
-	
+
 	data := Encode(msg)
 	_, err := targetConn.Writer().WriteBinary(data)
 	if err != nil {
-		fmt.Printf("发送消息到网关 %s 失败: %v\n", targetGatewayID, err)
+		if Logger != nil {
+			Logger.Printf("发送消息到网关 %s 失败: %v", targetGatewayID, err)
+		}
 		return
 	}
 	targetConn.Writer().Flush()
-	fmt.Printf("消息已发送到网关 %s\n", targetGatewayID)
+	if Logger != nil {
+		Logger.Printf("消息已发送到网关 %s", targetGatewayID)
+	}
 }
 
 // broadcastMessage 广播消息到所有网关
@@ -168,15 +191,19 @@ func broadcastMessage(msg Message) {
 	data := Encode(msg)
 	gateWayMapMutex.RLock()
 	defer gateWayMapMutex.RUnlock()
-	
+
 	for gatewayAddr, conn := range gateWayMap {
 		_, err := conn.Writer().WriteBinary(data)
 		if err != nil {
-			fmt.Printf("广播消息到网关 %s 失败: %v\n", gatewayAddr, err)
+			if Logger != nil {
+				Logger.Printf("广播消息到网关 %s 失败: %v", gatewayAddr, err)
+			}
 			continue
 		}
 		conn.Writer().Flush()
-		fmt.Printf("消息已广播到网关 %s\n", gatewayAddr)
+		if Logger != nil {
+			Logger.Printf("消息已广播到网关 %s", gatewayAddr)
+		}
 	}
 }
 
@@ -184,10 +211,12 @@ func broadcastMessage(msg Message) {
 func SendClose() {
 	gateWayMapMutex.Lock()
 	defer gateWayMapMutex.Unlock()
-	
+
 	for gatewayAddr, conn := range gateWayMap {
 		conn.Close()
-		fmt.Printf("已关闭网关连接: %s\n", gatewayAddr)
+		if Logger != nil {
+			Logger.Printf("已关闭网关连接: %s", gatewayAddr)
+		}
 	}
 	gateWayMap = make(map[string]netpoll.Connection)
 }
