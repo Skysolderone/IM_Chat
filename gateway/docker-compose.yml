@@ -13,6 +13,8 @@ services:
     networks:
       - gateway-network
     restart: unless-stopped
+    volumes:
+      - ~/gateway/gateway1:/app/logs
 
   gateway2:
     image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
@@ -26,6 +28,8 @@ services:
     networks:
       - gateway-network
     restart: unless-stopped
+    volumes:
+      - ~/gateway/gateway2:/app/logs
 
   gateway3:
     image: ${IMAGE:-13.115.26.37:8000/im/im-gateway:latest}
@@ -39,6 +43,8 @@ services:
     networks:
       - gateway-network
     restart: unless-stopped
+    volumes:
+      - ~/gateway/gateway3:/app/logs
 
 networks:
   gateway-network:
