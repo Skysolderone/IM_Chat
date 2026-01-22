@@ -14,7 +14,7 @@ import (
 	"github.com/cloudwego/netpoll"
 )
 
-// 网关服务
+// 网关服务集群
 func main() {
 	if err := config.LoadConfig(""); err != nil {
 		log.Fatalf("加载配置失败: %v", err)
