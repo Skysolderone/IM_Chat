@@ -14,6 +14,7 @@ import (
 	"github.com/cloudwego/netpoll"
 )
 
+// 网关服务
 func main() {
 	if err := config.LoadConfig(""); err != nil {
 		log.Fatalf("加载配置失败: %v", err)
@@ -85,7 +86,7 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 		return err
 	}
 	msg := model.Decode(data)
-	
+
 	switch msg.Type {
 	case model.MessageTypeAuth:
 		if !auth.IsAuth {
@@ -133,12 +134,12 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 
 	case model.MessageTypeText:
 		fmt.Println("收到文本消息: ", msg)
-		
+
 		// 如果消息是发给其他用户的，则需要转发给其他用户
 		if msg.ToUserID != 0 {
 			// 检查是否是来自其他网关的消息（发送者不在当前网关）
 			fromUserInCurrentGateway := model.Users[msg.FromUserID] != nil && model.Users[msg.FromUserID].IsAuth
-			
+
 			if !fromUserInCurrentGateway {
 				// 这是来自其他网关的消息，检查目标用户是否在当前网关
 				if receiver, ok := model.Users[msg.ToUserID]; ok && receiver.IsAuth {
@@ -149,7 +150,7 @@ func onRequest(ctx context.Context, conn netpoll.Connection) error {
 				// 目标用户也不在当前网关，忽略（可能在其他网关）
 				return nil
 			}
-			
+
 			// 这是本地用户发送的消息
 			data := fmt.Sprintf("%d 发送了消息: %s", msg.FromUserID, string(msg.Data))
 			if receiver, ok := model.Users[msg.ToUserID]; ok && receiver.IsAuth {
@@ -202,7 +203,7 @@ func onConnect(ctx context.Context, conn netpoll.Connection) context.Context {
 // handleGatewayForwardedMessage 处理来自其他网关转发的消息
 func handleGatewayForwardedMessage(msg model.Message, receiver *model.User) {
 	fmt.Printf("处理来自其他网关的消息: %+v\n", msg)
-	
+
 	switch msg.Type {
 	case model.MessageTypeText:
 		responseData := fmt.Sprintf("%d 发送了消息: %s", msg.FromUserID, string(msg.Data))
